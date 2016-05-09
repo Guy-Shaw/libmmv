@@ -1,0 +1,176 @@
+#! /usr/bin/perl -w
+    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+        if 0; #$running_under_some_shell
+
+# Filename: src/cmd/mmv-pairs/test/test-mmv-pairs
+# Project: libmmv
+# Brief: Unit test of example program, 'mmv-pairs'
+#
+# Copyright (C) 2016 Guy Shaw
+# Written by Guy Shaw <gshaw@acm.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=pod
+
+=begin description
+
+## <<description>> ##
+
+=end description
+
+=cut
+
+BEGIN { push(@INC, '../../../libtest'); }
+
+require 5.0;
+use strict;
+use warnings;
+use Carp;
+use diagnostics;
+use Getopt::Long;
+use File::Spec::Functions qw(splitpath catfile);
+use Cwd qw(getcwd);
+
+use mmvtest;
+
+my $debug   = 0;
+my $verbose = 0;
+
+my $program;
+my $exe;
+my $test_path;
+my $test_name;
+my $subtest;
+
+my @options = (
+    'debug'   => \$debug,
+    'verbose' => \$verbose,
+);
+
+my $err;
+my $rc;
+my $signal;
+my $exit;
+
+#:subroutines:#
+
+sub run_mmv_pairs {
+    my ($src_fname, $dst_fname, @mmv_argv) = @_;
+
+    my $child = fork();
+
+    if (!defined($child)) {
+        eprint "fork() failed; $!\n";
+        exit 2;
+    }
+
+    if ($child) {
+        wait;
+    }
+    else {
+        open(*STDIN,  '<', 'pairs');
+        open(*STDOUT, '>', 'mmv.out');
+        open(*STDERR, '>', 'mmv.err');
+        exec($exe, @mmv_argv);
+    }
+
+    $rc = $?;
+    my $exit   = ($rc >> 8) & 0xff;
+    my $signal = $rc & 0xff;
+
+    print "signal=${signal}, exit=${exit}.\n";
+
+    if ($exit != 0) {
+        show_file('mmv.out');
+    }
+
+    if (-e $src_fname) {
+        print "File '${src_fname}' exists, but it should not.\n";
+        system('ls', '-dl', $src_fname);
+        $err = 1;
+    }
+
+    if (! -e $dst_fname) {
+        print "File '${dst_fname}' should exist, but it does not.\n";
+        $err = 1;
+    }
+
+    if ($exit != 0) {
+        eprint "${program} returned exit status ${exit}.\n";
+        eprint "Expected status: 0\n";
+        $err = 1;
+    }
+
+    if (-s 'mmv.out') {
+        print "Unexpected message on stdout.\n";
+        show_file('mmv.out');
+        $err = 1;
+    }
+
+    if (-s 'mmv.err') {
+        print "Unexpected message on stderr.\n";
+        show_file('mmv.err');
+        $err = 1;
+    }
+}
+
+#:options:#
+
+set_print_fh();
+
+GetOptions(@options) or exit 2;
+
+#:main:#
+
+fresh_tmpdir();
+
+$test_path = $0;
+$test_name = sname($test_path);
+
+$subtest = '';
+$program = 'mmv-pairs';
+$exe = catfile('../..', $program);
+
+if (!chdir('tmp')) {
+    eprint "chdir('tmp') failed; $!.\n";
+    exit 2;
+}
+
+
+####################
+#
+# Test with nul-terminated { from->to } pairs coming in from stdin
+# 
+
+write_new_file('test-01', "Hello.\n");
+write_new_file('pairs', "test-01\000TEST-01\000");
+
+$err = 0;
+run_mmv_pairs('test-01', 'TEST-01');
+show_test_results($test_name, '--null', $err);
+
+####################
+#
+# Test with qouted-printable encoded { from->to } pairs coming in from stdin
+# Test with filenames that have space in their names.
+#
+write_new_file('testqp 01', "Hello.\n");
+write_new_file('pairs', "testqp 01\nTESTQP 01\n");
+
+$err = 0;
+run_mmv_pairs('testqp 01', 'TESTQP 01',  '--qp');
+show_test_results($test_name, '--qp', $err);
+
+exit ($err ? 1 : 0);

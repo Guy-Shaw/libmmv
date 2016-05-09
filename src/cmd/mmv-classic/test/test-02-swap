@@ -1,0 +1,200 @@
+#! /usr/bin/perl -w
+    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+        if 0; #$running_under_some_shell
+
+# Filename: src/cmd/mmv-classic/test/test-02-swap
+# Project: libmmv
+# Brief: Swap two filenames; should work much "as if" parallel assignment
+#
+# Copyright (C) 2016 Guy Shaw
+# Written by Guy Shaw <gshaw@acm.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=pod
+
+=begin description
+
+## <<description>> ##
+
+=end description
+
+=cut
+
+BEGIN { push(@INC, '../../../libtest'); }
+
+require 5.0;
+use strict;
+use warnings;
+use Carp;
+use diagnostics;
+use Getopt::Long;
+use File::Spec::Functions qw(splitpath catfile);
+use Cwd qw(getcwd);
+
+use mmvtest;
+
+my $debug   = 0;
+my $verbose = 0;
+
+my $program;
+my $exe;
+my $test_path;
+my $test_name;
+my $subtest;
+
+my @options = (
+    'debug'   => \$debug,
+    'verbose' => \$verbose,
+);
+
+#:subroutines:#
+
+sub snarf_file {
+    my ($fname) = @_;
+    my $fh;
+    my $whole_file;
+    my $buf;
+    my $nread;
+
+    if (!open($fh, '<', $fname)) {
+        return "*** ERROR ***\n";
+    }
+
+    $whole_file = '';
+    while (($nread = sysread($fh, $buf, 1000000000)) != 0) {
+        $whole_file .= $buf;
+    }
+
+    close $fh;
+
+    return $whole_file;
+}
+
+sub names_and_contents {
+    my $all_contents = '';
+    for my $fname (@_) {
+        my $contents;
+        $all_contents .= $fname . "\n";
+        $contents = snarf_file($fname);
+        $all_contents .= $contents;
+    }
+    return $all_contents;
+}
+
+#:options:#
+
+set_print_fh();
+
+GetOptions(@options) or exit 2;
+
+#:main:#
+
+fresh_tmpdir();
+
+$test_path = $0;
+$test_name = sname($test_path);
+
+$subtest = '';
+$program = 'mmv';
+$exe = catfile('../..', $program);
+
+if (!chdir('tmp')) {
+    eprint "chdir('tmp') failed; $!.\n";
+    exit 2;
+}
+
+write_new_file('file01', "File one.\n");
+write_new_file('file02', "File two.\n");
+write_new_file('pairs',
+    "file01 file02\n",
+    "file02 file01\n",
+);
+
+my $before;
+my $expect;
+my $after;
+
+$before = names_and_contents('file01', 'file02');
+$expect = "file01\nFile two.\nfile02\nFile one.\n";
+
+my $err;
+my $rc;
+
+$err = 0;
+my $child = fork();
+
+if (!defined($child)) {
+    eprint "fork() failed; $!\n";
+    exit 2;
+}
+
+if ($child) {
+    wait;
+}
+else {
+    open(*STDIN,  '<', 'pairs');
+    open(*STDOUT, '>', 'mmv.out');
+    open(*STDERR, '>', 'mmv.err');
+    exec($exe, '-D');
+}
+
+$rc = $?;
+my $exit   = ($rc >> 8) & 0xff;
+my $signal = $rc & 0xff;
+
+print "signal=${signal}, exit=${exit}.\n";
+
+if ($exit != 0) {
+    show_file('mmv.out');
+}
+
+$after = names_and_contents('file01', 'file02');
+
+if ($after eq $before) {
+    print "Files did not change at all, but they should have.\n";
+    $err = 1;
+}
+elsif ($after ne $expect) {
+    print "Files did not change as expected.\n";
+    print "Before:\n";
+    print '    ', $_, "\n"  for (split(/\n/, $before));
+    print "After\n";
+    print '    ', $_, "\n"  for (split(/\n/, $after));
+    print "Expect\n";
+    print '    ', $_, "\n"  for (split(/\n/, $expect));
+    $err = 1;
+}
+
+if ($exit != 0) {
+    eprint "mmv returned exit status ${exit}.\n";
+    eprint "Expected status: 0\n";
+    $err = 1;
+}
+
+if (-s 'mmv.out') {
+    print "Unexpected message on stdout.\n";
+    show_file('mmv.out');
+    $err = 1;
+}
+
+if (-s 'mmv.err') {
+    print "Unexpected message on stderr.\n";
+    show_file('mmv.err');
+    $err = 1;
+}
+
+show_test_results($test_name, '', $err);
+
+exit ($err ? 1 : 0);
