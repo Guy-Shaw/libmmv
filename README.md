@@ -5,7 +5,7 @@
 `libmmv` is a library that implements all of the
 functionality of the classic program, `mmv`.
 `mmv` is a bulk rename command-line utility
-that has been around since about 1991.
+that has been around since about 1990.
 
 The new `mmv` is re-written as a library so that
 much of the functionality of `mmv` is accessible
