@@ -777,6 +777,96 @@ copymove(mmv_t *mmv, REP *p)
     return (mmv_copy(mmv, p->r_ffrom, -1) || mmv_unlink(mmv->pathbuf));
 }
 
+
+/*
+ * sc_status_t
+ * -----------
+ *  rv:
+ *      the value returned by a system call
+ *
+ *  err:
+ *      the value of errno immediately after the system call,
+ *      before any other operations (including printing error messages)
+ *      can contaminate the evidence.
+ *
+ * sc_name:
+ *     the name (or description) of the system call.
+ *     for purposes of error reporting.
+ *
+ *
+ * Note:
+ *   An sc_status_t can be used to manage the status of things other than
+ *   system calls, as long as they behave like system call.  That is,
+ *   as long as a function returns a conforming syscall-like return value,
+ *   and errno-like integer code.
+ *   
+ */
+
+struct syscall_status {
+    int rv;
+    int err;
+    const char *sc_name;
+};
+
+typedef struct syscall_status sc_status_t;
+
+/**
+ * @brief Do the actual rename/move/copy/link/symlink operation on one pair.
+ *
+ * @param mmv
+ * @param p         IN   Which |REP| structure
+ * @param stp       OUT  ^{ return-value, errno, name } returned by system call
+ * @param aliaslen  IN   Needed only for copy or append with an aliased file
+ *
+ */
+
+void
+do_move_pair(mmv_t *mmv, REP *p, sc_status_t *stp, size_t aliaslen)
+{
+    int rv;
+
+    if (p->r_fdel != NULL && !(mmv->op & (APPEND | OVERWRITE))) {
+        stp->sc_name = "unlink";
+        rv = mmv_unlink(mmv->fullrep);
+        if (rv) {
+            stp->err = errno;
+            fputs("unlink('", stderr);
+            eprint_filename(mmv->fullrep);
+            fputs(") failed.\n", stderr);
+            eexplain_err(stp->err);
+            stp->rv = rv;
+            return;
+        }
+    }
+
+    if (mmv->op & (COPY | APPEND)) {
+        size_t copy_len;
+
+        stp->sc_name = "copy";
+        copy_len = p->r_flags & R_ISALIASED ? aliaslen : SIZE_UNLIMITED;
+        rv = mmv_copy(mmv, p->r_ffrom, copy_len);
+    }
+    else if (mmv->op & HARDLINK) {
+        stp->sc_name = "link";
+        rv = link(mmv->pathbuf, mmv->fullrep);
+    }
+    else if (mmv->op & SYMLINK) {
+        stp->sc_name = "symlink";
+        rv = symlink(mmv->pathbuf, mmv->fullrep);
+    }
+    else if (p->r_flags & R_ISX) {
+        stp->sc_name = "copymove";
+        rv = copymove(mmv, p);
+    }
+    else {
+        stp->sc_name = "rename";
+        rv = rename(mmv->pathbuf, mmv->fullrep);
+    }
+
+    stp->err = rv ? errno : 0;
+    stp->rv = rv;
+}
+
 /**
  * @brief Do replacements
  *
@@ -830,50 +920,17 @@ doreps(mmv_t *mmv)
             }
 
             if (!mmv->noex) {
-                const char *op_str;
-                int rv;
+                sc_status_t scstat;
 
-                if (p->r_fdel != NULL && !(mmv->op & (APPEND | OVERWRITE))) {
-                    op_str = "unlink";
-                    rv = mmv_unlink(mmv->fullrep);
-                }
-                if (mmv->op & (COPY | APPEND)) {
-                    size_t copy_len;
-
-                    op_str = "copy";
-                    copy_len = p->r_flags & R_ISALIASED ? aliaslen : SIZE_UNLIMITED;
-                    rv = mmv_copy(mmv, p->r_ffrom, copy_len);
-                }
-                else if (mmv->op & HARDLINK) {
-                    op_str = "link";
-                    rv = link(mmv->pathbuf, mmv->fullrep);
-                }
-                else if (mmv->op & SYMLINK) {
-                    op_str = "symlink";
-                    rv = symlink(mmv->pathbuf, mmv->fullrep);
-                }
-                else if (p->r_flags & R_ISX) {
-                    op_str = "copymove";
-                    rv = copymove(mmv, p);
-                }
-                else {
-                    op_str = "rename";
-                    rv = rename(mmv->pathbuf, mmv->fullrep);
-                }
-
-                dbg_printf("op_str=%s\n", op_str);
-
-                if (rv) {
-                    int err;
-
-                    err = errno;
+                do_move_pair(mmv, p, &scstat, aliaslen);
+                if (scstat.rv) {
                     eprint_filename(mmv->pathbuf);
                     fputs(" -> ", stderr);
                     eprint_filename(mmv->fullrep);
                     fputs(" ", stderr);
-                    fputs(op_str, stderr);
+                    fputs(scstat.sc_name, stderr);
                     fputs(" has failed.\n", stderr);
-                    eexplain_err(err);
+                    eexplain_err(scstat.err);
                     printaliased = snap(mmv, first, p);
                 }
             }
