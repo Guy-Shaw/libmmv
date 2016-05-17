@@ -35,7 +35,7 @@ Phil Dench, John Nelson: bug reports.
 The modifications to turn the program, 'mmv' into the library, 'libmmv'
 are written by Guy Shaw,
 
-and are Copyright (c) 2015-1026 Guy Shaw.
+and are Copyright (c) 2015-2016 Guy Shaw.
 
 Many of the components of libmmv are already licensed
 under the GNU Public License.
