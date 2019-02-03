@@ -54,7 +54,7 @@ See Issue #1.
 ### Use Perl script and `mmv-pairs`
 
 ```
-ls *.pdf \
+ls -1 *.pdf \
 | perl -e 'while (<>) { chomp; print $_, "\000"; s/\s+/-/g; print $_, "\000"; }' \
 | mmv-pairs
 
