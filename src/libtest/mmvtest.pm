@@ -32,7 +32,22 @@ use File::Spec::Functions qw(splitpath catfile);
 $VERSION = '0.01_01';
 
 @ISA = qw/ Exporter /;
-@EXPORT = qw(set_print_fh eprint eprintf dprint dprintf sname yyyymmddhhmmss fresh_tmpdir show_test_results write_new_file show_file grep_file grep_files);
+@EXPORT = qw(
+    set_print_fh
+    eprint
+    eprintf
+    dprint
+    dprintf
+    sname
+    yyyymmddhhmmss
+    fresh_tmpdir
+    show_test_results
+    write_new_file
+    show_file
+    show_mmv_stdout_and_stderr
+    grep_file
+    grep_files
+);
 
 
 our $eprint_fh;
@@ -169,6 +184,16 @@ sub show_file {
         print $_;
     }
     close $fh;
+}
+
+sub show_mmv_stdout_and_stderr {
+    system('ls', '-dlh', 'mmv.out', 'mmv.err');
+    if (-s 'mmv.out') {
+        show_file('mmv.out');
+    }
+    if (-s 'mmv.err') {
+        show_file('mmv.err');
+    }
 }
 
 sub grep_file {

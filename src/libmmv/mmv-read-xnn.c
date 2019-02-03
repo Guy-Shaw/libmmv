@@ -130,8 +130,8 @@ mmv_get_pairs_xnn(mmv_t *mmv, FILE *f)
             break;
         }
         mmv->tolen = rlen;
-        dbg_printf("from='%s'\n", mmv->from);
-        dbg_printf("to  ='%s'\n", mmv->to);
+        dbg_println_str("from=", mmv->from);
+        dbg_println_str("to  =", mmv->to);
 
         matchpat(mmv);
         if (mmv->paterr) {

@@ -37,28 +37,6 @@ typedef unsigned int uint_t;
 
 extern FILE *dbgprint_fh;
 
-void
-set_debug_fh(const char *dbg_fname)
-{
-    if (dbg_fname == NULL) {
-        dbgprint_fh = NULL;
-        return;
-    }
-
-    if (dbg_fname[0] == '\0') {
-        dbgprint_fh = fopen(dbg_fname, "w");
-        return;
-    }
-
-    dbgprint_fh = fopen("/proc/fd/self/3", "w");
-    if (dbgprint_fh == NULL) {
-        dbgprint_fh = fopen("mmv.dbg", "w");
-    }
-    if (dbgprint_fh == NULL) {
-        dbgprint_fh = stderr;
-    }
-}
-
 /**
  * @brief Append a string to a buffer, avoid buffer overflow.
  *
@@ -225,13 +203,19 @@ fdump_indent(FILE *f)
 void
 fdump_desc(FILE *f, void *p, const char *desc)
 {
+    if (desc == NULL) {
+        desc = "(no description)";
+    }
+
     fdump_indent(f);
+    fprint_vis(f, desc);
     if (p == NULL) {
-        fprintf(f, "%s=NULL\n", desc);
+        fprintf(f, "=NULL");
     }
     else {
-        fprintf(f, "%s @%p:\n", desc, p);
+        fprintf(f, " @%p:", p);
     }
+    fputs("\n", f);
 }
 
 /**
@@ -251,19 +235,20 @@ fdump_pointer(FILE *f, void *p, const char *desc)
     }
 
     fdump_indent(f);
+    fprint_vis(f, desc);
     if (p == NULL) {
-        fprintf(f, "%s=NULL\n", desc);
-        return;
+        fprintf(f, "=NULL");
     }
 
-    fprintf(f, "%s=0x%p\n", desc, p);
+    fprintf(f, "=0x%p", p);
+    fputs("\n", f);
 }
 
 /**
  * @brief print a pointer and its description, be careful about NULL pointers.
  *
  * @param  f     IN  Where to print
- * @param  p     IN  Pointer to represent; possibly NULL.
+ * @param  p     IN  Pointer to a zstring to represent; possibly NULL.
  * @param  desc  IN  Description; possibly NULL.
  *
  * Like fdump_pointer(), but p is a string.
@@ -271,19 +256,21 @@ fdump_pointer(FILE *f, void *p, const char *desc)
  */
 
 void
-fdump_name(FILE *f, char *p, const char *desc)
+fdump_name(FILE *f, const char *p, const char *desc)
 {
     if (desc == NULL) {
         desc = "(no description)";
     }
 
     fdump_indent(f);
+    fprint_vis(f, desc);
     if (p == NULL) {
-        fprintf(f, "%s=NULL\n", desc);
+        fprintf(f, "=NULL");
     }
     else {
-        fprintf(f, "%s='%s'\n", desc, p);
+        fprint_str(f, "=", p);
     }
+    fputs("\n", f);
 }
 
 /**
@@ -383,5 +370,45 @@ fdump_all_replacement_structures(FILE *f, REP *head)
         for (rp = rp1; rp != NULL; rp = rp->r_thendo) {
             fdump_replacement_structure(f, rp);
         }
+    }
+}
+
+#include <bsd/vis.h>
+
+void
+fprint_vis(FILE *f, const char *str)
+{
+    const char *s;
+    char visbuf[8];
+
+    s = str;
+    while (*s) {
+        vis(visbuf, *s, VIS_WHITE, 0);
+        fputs(visbuf, f);
+        ++s;
+    }
+}
+
+void
+fprint_str(FILE *f, const char *var, const char *str)
+{
+    fputs(var, f);
+    fputs("'", f);
+    fprint_vis(f, str);
+    fputs("'", f);
+}
+
+void
+fprintln_str(FILE *f, const char *var, const char *str)
+{
+    fprint_str(f, var, str);
+    fputs("\n", f);
+}
+
+void
+dbg_println_str(const char *var, const char *str)
+{
+    if (dbgprint_fh) {
+        fprintln_str(dbgprint_fh, var, str);
     }
 }

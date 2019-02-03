@@ -26,10 +26,19 @@
 
 
 /*
- * XXX To do:
- * XXX   Convert to use a general-purpose allocator.
- * XXX   What might have been needed in 1990 is probably
- * XXX   not needed or desirable on modern operating systems.
+ * XXX
+ * To do
+ * -----
+ * Convert to use a general-purpose allocator.
+ * What might have been needed in 1990 is probably
+ * not needed or desirable on modern operating systems.
+ *
+ * Also, the direct use of challoc() and chgive() might
+ * be done better with GNU libiberty-style Obstacks,
+ * or a slab allocator a la Solaris kmem_cache_alloc(),
+ * or since we are in userland, umem_cache_alloc().
+ *
+ * Priority: low
  *
  */
 
@@ -39,7 +48,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include <eprint.h>
+#include <mmv-impl.h>
 
 struct memchunk;
 struct slicer;
@@ -58,8 +67,6 @@ struct slicer {
     size_t  sl_len;
 };
 
-extern void quit(void);
-
 #define CHUNKSIZE 2048
 
 static memchunk_t *freechunks = NULL;
@@ -69,19 +76,35 @@ static slicer_t slicer[2] = {
 };
 
 void *
-myalloc(size_t sz)
+mmv_alloc(size_t sz)
 {
-    void *ret;
+    void *new_ptr;
 
     if (sz == 0) {
         return (NULL);
     }
-    ret = (void *)malloc(sz);
-    if (ret == NULL) {
-        eprint("Insufficient memory.\n");
-        quit();
+    new_ptr = malloc(sz);
+    if (new_ptr == NULL) {
+        fprintf(stderr, "Insufficient memory.\n");
+        mmv_abort();
     }
-    return (ret);
+    return (new_ptr);
+}
+
+void *
+mmv_realloc(void *ptr, size_t sz)
+{
+    void *new_ptr;
+
+    if (sz == 0) {
+        return (NULL);
+    }
+    new_ptr = realloc(ptr, sz);
+    if (new_ptr == NULL) {
+        fprintf(stderr, "Insufficient memory.\n");
+        mmv_abort();
+    }
+    return (new_ptr);
 }
 
 void *
@@ -102,7 +125,7 @@ challoc(size_t sz, unsigned int which)
 
         if (p == NULL) {
             sl->sl_len = CHUNKSIZE - sizeof (memchunk_t *);
-            p = (memchunk_t *) myalloc(CHUNKSIZE);
+            p = (memchunk_t *) mmv_alloc(CHUNKSIZE);
         }
         else if (q == NULL) {
             freechunks = p->ch_next;

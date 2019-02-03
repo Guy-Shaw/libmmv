@@ -158,8 +158,8 @@ write_new_file('test-01', "Hello.\n");
 write_new_file('pairs', "test-01\000TEST-01\000");
 
 $err = 0;
-run_mmv_pairs('test-01', 'TEST-01');
-show_test_results($test_name, '--null', $err);
+run_mmv_pairs('test-01', 'TEST-01', '--encoding=null');
+show_test_results($test_name, '--encoding=null', $err);
 
 ####################
 #
@@ -170,7 +170,7 @@ write_new_file('testqp 01', "Hello.\n");
 write_new_file('pairs', "testqp 01\nTESTQP 01\n");
 
 $err = 0;
-run_mmv_pairs('testqp 01', 'TESTQP 01',  '--qp');
-show_test_results($test_name, '--qp', $err);
+run_mmv_pairs('testqp 01', 'TESTQP 01',  '--encoding=qp');
+show_test_results($test_name, '--encoding=qp', $err);
 
 exit ($err ? 1 : 0);

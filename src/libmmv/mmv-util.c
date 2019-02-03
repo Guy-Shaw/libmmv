@@ -50,7 +50,10 @@ extern int gotsig;
 void
 quit(void)
 {
-    eprint("Aborting, nothing done.\n");
+    fflush(stdout);
+    fflush(stderr);
+    fprintf(stderr, "Aborting, nothing done.\n");
+    fflush(stderr);
     exit(1);
 }
 
@@ -89,4 +92,14 @@ breakstat(int s)
 {
     sig_report(s);
     exit(1);
+}
+
+void
+mmv_abort(void)
+{
+    fflush(stdout);
+    fflush(stderr);
+    fprintf(stderr, "ABORT\n");
+    fflush(stderr);
+    abort();
 }

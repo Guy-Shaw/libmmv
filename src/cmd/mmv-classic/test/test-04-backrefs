@@ -4,7 +4,7 @@
 
 # Filename: src/cmd/mmv-classic/test/test-04-backrefs
 # Project: libmmv
-# Brief: Test to see if back references are handled correctly.
+# Brief: Test to see if wildcards and back-references are handled correctly.
 #
 # Copyright (C) 2016 Guy Shaw
 # Written by Guy Shaw <gshaw@acm.org>
@@ -26,7 +26,7 @@
 
 =begin description
 
-## <<description>> ##
+libmmv: Test to see if wildcards and back-references are handled correctly.
 
 =end description
 
@@ -51,7 +51,7 @@ my $verbose = 0;
 my $program;
 my $exe;
 my $test_path;
-my $test_name;
+my $test_fname;
 my $subtest;
 
 my @options = (
@@ -70,7 +70,7 @@ GetOptions(@options) or exit 2;
 fresh_tmpdir();
 
 $test_path = $0;
-$test_name = sname($test_path);
+$test_fname = sname($test_path);
 
 $subtest = '';
 $program = 'mmv';
@@ -81,7 +81,7 @@ if (!chdir('tmp')) {
     exit 2;
 }
 
-my $test_fname = 'file-123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+$test_fname = 'file-123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 my $err;
 my $rc;
 
@@ -90,7 +90,7 @@ write_new_file($test_fname, "Test\n");
 my $d = "[0-9]" x 9;
 my $a = "[A-Z]" x 26;
 my $backrefs_d = join("", map { "#$_" } (1 .. 9));
-my $backrefs_a = join("", map { "#l$_" } (1 .. 26));
+my $backrefs_a = join("", map { "#l$_" } (10 .. 35));
 my $backrefs = $backrefs_d . $backrefs_a;
 write_new_file('pairs', "file-${d}${a} file-${backrefs}\n");
 
@@ -118,8 +118,14 @@ my $signal = $rc & 0xff;
 
 print "signal=${signal}, exit=${exit}.\n";
 
-if ($exit == 1) {
-    show_file('mmv.out');
+show_file('mmv.out');
+
+if (-f lc($test_fname) && ! -e $test_fname) {
+    print
+        "Test file was moved as expected for newer versions of mmv\n",
+        "with unlimited wildcards.\n";
+    system('ls', '-lh');
+    exit 0;
 }
 
 if (! -f $test_fname) {
@@ -133,13 +139,19 @@ if (!grep_file(' : too many wildcards\.', 'mmv.out')) {
     eprint qq[expected "too many wildcards" error message.\n];
     $err = 1;
 }
-    
+
 if ($rc != 256) {
     eprint "mmv returned exit status ${exit}.\n";
     eprint "Expected status: 1\n";
     $err = 1;
 }
 
-show_test_results($test_name, 'too many backrefs', $err);
+if ($err == 0) {
+    print
+        "mmv refused to move because there were too many wildcards,\n",
+        "as expect for earlier versions of mmv with limited wildcards.\n";
+}
+
+show_test_results($test_fname, 'too many backrefs', $err);
 
 exit ($err ? 1 : 0);

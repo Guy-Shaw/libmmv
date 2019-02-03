@@ -23,8 +23,14 @@ There are options for dealing with other ways of
 encoding { from -> to } pairs of filenames.
 The classic `mmv` syntax for _form_ patterns
 and _to_ patterns is now a special case.
-Other encodings are 'null', 'quoted-printable',
-and 'xnn'.  A file consisting of { from `->` to }
+Other encodings are:
+
+1. 'null',
+1. 'quoted-printable',
+1. 'xnn'
+1. 'vis'  (BSD vis/unvis).
+
+A file consisting of `{ from -> to }`
 pairs can be sent to the `mmv-pairs` program,
 which does not interpret any characters of either
 the _from_ or the _to_ filenames.
@@ -36,6 +42,11 @@ rename/move/copy operations it wants; then,
 that list of raw _from_ `->` _to_ pairs can be
 fed into `mmv-pairs`, which will do all of the
 important safety checks.
+
+As suggested by github user, `milahu`,
+back-reference #0 was added,
+which substitutes the entire `from` filename.
+See Issue #1.
 
 
 ## Examples

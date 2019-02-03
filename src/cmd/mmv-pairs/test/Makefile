@@ -27,5 +27,8 @@ clean:
 show-targets:
 	@show-makefile-targets
 
+gdb:
+	./run-gdb
+
 show-%:
 	@echo $*=$($*)

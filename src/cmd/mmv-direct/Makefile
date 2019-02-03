@@ -20,7 +20,7 @@
 PROGRAM := mmv-direct
 SRCS = $(PROGRAM).c
 OBJS = $(PROGRAM).o
-LIBS := ../../libmmv/libmmv.a  ../../libcscript/libcscript.a
+LIBS := ../../libmmv/libmmv.a  ../../libcscript/libcscript.a -lbsd
 
 CC := gcc
 CONFIG := -DSYSV -DDIRENT -DRENAME

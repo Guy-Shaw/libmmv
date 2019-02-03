@@ -27,12 +27,30 @@ struct mmv_state;
 typedef struct mmv_state mmv_t;
 
 extern mmv_t *mmv_new(void);
+extern void mmv_set_default_options(mmv_t *mmv);
+extern void fdump_mmv_op(FILE *f, mmv_t *mmv);
+extern void mmv_init_patgen(mmv_t *mmv);
 extern int mmv_get_pairs_nul(mmv_t *mmv, FILE *);
 extern int mmv_get_pairs_qp(mmv_t *mmv, FILE *);
+extern int mmv_get_pairs_vis(mmv_t *mmv, FILE *);
 extern int mmv_get_pairs_xnn(mmv_t *mmv, FILE *);
-extern int mmv_add_pair(mmv_t *mmv, char const *src_fname, char const *dst_fname);
-extern int mmv_pairs(mmv_t *mmv);
+extern int mmv_add_pattern_pair(mmv_t *mmv, char const *src_fname, char const *dst_fname);
+extern int mmv_add_1_fname_pair(mmv_t *mmv, char const *src_fname, char const *dst_fname);
+extern int mmv_add_fname_pairs(mmv_t *mmv, size_t filec, char **filev);
+
+extern int mmv_compile(mmv_t *mmv);
+extern int mmv_execute(mmv_t *mmv);
 extern int mmv_setopt(mmv_t *mmv, int);
 extern int patgen(mmv_t *mmv, int argc, char *const *argv);
+
+extern void quit(void);
+
+// ********** mmv-main.c
+
+extern int procargs(mmv_t *mmv, int argc, char *const *argv, char **pfrompat, char **ptopat);
+
+// ********** mmv-getpat.c
+
+extern int getpat(mmv_t *mmv);
 
 #endif /* MMV_H */

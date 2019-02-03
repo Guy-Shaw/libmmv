@@ -56,5 +56,5 @@ guard_malloc(size_t size)
     err = errno;
     fprintf(errprint_fh, "malloc(%#zx) failed\n", size);
     eexplain_err(err);
-    exit(8);
+    exit(ENOMEM);
 }

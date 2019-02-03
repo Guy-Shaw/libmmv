@@ -31,7 +31,7 @@
 #include <mmv-impl.h>
 #include <cscript.h>
 
-extern void init_patgen_static_data(void);
+extern FILE *dbgprint_fh;
 
 /**
  * @brief Initialize all values in an existing mmv_t object.
@@ -54,7 +54,7 @@ mmv_state_init(mmv_t *mmv)
     memset(mmv, 0, sizeof (mmv_t));
 
     mmv->magic    = MMV_MAGIC;
-    mmv->debug_fh = NULL;
+    mmv->debug_fh = dbgprint_fh;
     mmv->verbose  = false;
 
     mmv->outfile  = stdout;
@@ -73,8 +73,7 @@ mmv_state_init(mmv_t *mmv)
     mmv->fullrep  = (char *)guard_malloc(PATH_MAX + 1);
 
     mmv->lastrep  = &mmv->hrep;
-
-    init_patgen_static_data();
+    mmv->aux      = NULL;
 }
 
 /**
@@ -85,6 +84,8 @@ mmv_state_init(mmv_t *mmv)
 mmv_t *
 mmv_new(void)
 {
+    init_sys();
+    init_dostage();
     mmv_t *new_mmv = (mmv_t *) guard_malloc(sizeof (mmv_t));
     mmv_state_init(new_mmv);
     return (new_mmv);

@@ -30,8 +30,6 @@
 #define IMPORT_PATTERN
 #include <mmv-impl.h>  // for mmv_t, etc
 
-extern void matchpat(mmv_t *mmv);
-
 extern FILE *errprint_fh;
 extern FILE *dbgprint_fh;
 
@@ -96,6 +94,7 @@ mmv_get_pairs_nul(mmv_t *mmv, FILE *f)
 
     mmv->encoding = ENCODE_NUL;
     while (true) {
+        mmv->paterr = 0;
         rv = get_filename_nul(f, mmv->from, MAXPATLEN, &rlen);
         if (rv == EOF) {
             rv = 0;
@@ -114,12 +113,46 @@ mmv_get_pairs_nul(mmv_t *mmv, FILE *f)
             break;
         }
         mmv->tolen = rlen;
-        dbg_printf("from='%s'\n", mmv->from);
-        dbg_printf("to  ='%s'\n", mmv->to);
+        dbg_println_str("from=", mmv->from);
+        dbg_println_str("to  =", mmv->to);
 
-        matchpat(mmv);
+        if (mmv->fromlen >= MAXPATLEN) {
+            fexplain_char_pattern_too_long(stderr, mmv->from, MAXPATLEN);
+            mmv->paterr = 1;
+        }
+
+        if (mmv->tolen >= MAXPATLEN) {
+            fexplain_char_pattern_too_long(stderr, mmv->to, MAXPATLEN);
+            mmv->paterr = 1;
+        }
+
         if (mmv->paterr) {
-            return (-1);
+            return (mmv->paterr);
+        }
+
+        extern int parse_src_fname(mmv_t *mmv);
+        extern int parse_dst_fname(mmv_t *mmv);
+        int err;
+
+        err = parse_src_fname(mmv);
+        if (err) {
+            mmv->paterr = 1;
+            return (err);
+        }
+
+        err = parse_dst_fname(mmv);
+        if (err) {
+            mmv->paterr = 1;
+            return (err);
+        }
+
+        if (dostage_fnames(mmv, mmv->from, mmv->pathbuf, 0, 0)) {
+            printf("%s -> %s : no match.\n", mmv->from, mmv->to);
+            mmv->paterr = 1;
+        }
+
+        if (mmv->debug_fh) {
+            fdump_all_replacement_structures(mmv->debug_fh, &mmv->hrep);
         }
     }
 

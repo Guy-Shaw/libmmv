@@ -23,9 +23,8 @@
 #ifndef MMV_STATE_H
 #define MMV_STATE_H
 
-#ifndef MMV_IMPL_H
-#error "Require mmv-impl.h"
-#endif
+#include <mmv-impl.h>
+#include <mmv-impl-rep.h>
 
 #include <stdbool.h>
 #include <unistd.h>         // Import size_t
@@ -37,10 +36,11 @@
 
 enum encode {
     ENCODE_NONE = 0x101,
-    ENCODE_PAT,
-    ENCODE_NUL,
-    ENCODE_QP,
-    ENCODE_XNN,
+    ENCODE_PAT,         // mmv-classic patterns
+    ENCODE_NUL,         // filenames terminated by NUL byte
+    ENCODE_QP,          // quoted-printable encoded filenames
+    ENCODE_VIS,         // vis-encoded filenames (Berkeley BSD vis/unvis)
+    ENCODE_XNN,         // filenames encode with \xnn for all non-graphic chars
 };
 
 /*
@@ -84,9 +84,17 @@ struct mmv_state {
     REP *lastrep;
     REP mistake;
     int nreps;
-};
 
-typedef struct mmv_state mmv_t;
+    // An opaque pointer to implementation-specific data
+    // This is not only private to the implementation
+    // and should not be considered part of the interface;
+    // it is even private to certain subsets of the libmmv.
+    // Other parts of libmmv that do no get used should not
+    // know anything about how they are used, and should not
+    // even pollute their namespace with knowledge of funtions
+    // and data types that might be related to mmv->aux.
+    void *aux;
+};
 
 #define DFLTOP XMOVE
 

@@ -31,7 +31,7 @@ extern "C" {
 #include <stdbool.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <sys/types.h>      // Import size_t
+#include <unistd.h>
 
 typedef unsigned int uint_t;
 
@@ -53,9 +53,11 @@ extern int eprintf(const char *, ...);
 
 #endif /* __GNUC__ */
 
-// dbgprint.h
 
 #ifndef DBGPRINT_H
+
+// dbgprint.h
+
 extern bool debug;
 
 extern FILE *dbgprint_fh;
@@ -107,16 +109,21 @@ typedef struct fvh fvh_t;
 
 // ==================== libcscript external functions
 
-extern int    set_print_fh(void);
-extern int    filev_probe(uint_t filec, char **filev);
-extern int    filev_by_char(uint_t filec, char **filev);
-extern int    filev_by_rune(uint_t filec, char **filev);
-extern int    filev_by_word(uint_t filec, char **filev);
-extern int    filev_by_line(uint_t filec, char **filev);
-extern int    filev_by_paragraph(uint_t filec, char **filev);
-extern void   fshow_str_array(FILE *, uint_t, char * const *);
+extern void   set_eprint_fh(void);
+extern void   set_debug_fh(const char *fname);
+
+extern int    parse_cardinal(size_t *r, const char *str);
+
+extern int    filev_probe(size_t filec, char **filev);
+extern int    filev_by_char(size_t filec, char **filev);
+extern int    filev_by_rune(size_t filec, char **filev);
+extern int    filev_by_word(size_t filec, char **filev);
+extern int    filev_by_line(size_t filec, char **filev);
+extern int    filev_by_paragraph(size_t filec, char **filev);
+extern void   fshow_str_array(FILE *, size_t, char * const *);
 extern size_t fshow_str(FILE *, const char *);
 extern size_t fshow_strn(FILE *, const char *, size_t);
+extern size_t show_char_r(char *buf, size_t sz, int chr);
 extern void   fshow_errno(FILE *f, const char *msg, int err);
 extern void   fshow_fname(FILE *f, const char *fname);
 extern void   fshow_wait_status(FILE *, const char *, int);
@@ -130,9 +137,10 @@ extern void   fshow_svar(FILE *f, const char *var, const char *value);
 extern void   dbg_show_svar(const char *var, const char *value);
 extern void * guard_malloc(size_t sz);
 extern void * guard_calloc(size_t nelem, size_t sz);
-extern void   fexpain_err(FILE *f, int err);
-extern void   eexpain_err(int err);
-extern void   expain_err(int err);
+extern void * guard_realloc(void *mem, size_t sz);
+extern void   fexplain_err(FILE *f, int err);
+extern void   eexplain_err(int err);
+extern void   explain_err(int err);
 extern int    file_test(const char *tests, const char *fname);
 
 // Note: msg is _not_ of type @type{const char *}, because the message
@@ -149,6 +157,10 @@ extern void ferror_msg_start(FILE *f);
 extern void ferror_msg_finish(FILE *f);
 extern void error_msg_start(void);
 extern void error_msg_finish(void);
+
+// Miscellaneous low-level string and mem functions
+
+int slice_zstr_cmp(const char *slice, size_t zlen, const char *zs);
 
 extern ssize_t size_to_ssize(size_t sz);
 

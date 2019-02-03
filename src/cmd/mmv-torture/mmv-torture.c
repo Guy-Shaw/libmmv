@@ -39,6 +39,9 @@
 
 extern void set_debug_fh(const char *dbg_fname);
 
+const char *program_path;
+const char *program_name;
+
 FILE *errprint_fh;
 FILE *dbgprint_fh;
 
@@ -75,12 +78,12 @@ test_path_too_long(void)
     p[63] = '\0';
 
     mmv = mmv_new();
-    err = mmv_add_pair(mmv, src_pattern, "TMP-01");
+    err = mmv_add_1_fname_pair(mmv, src_pattern, "TMP-01");
     if (err) {
         return (err);
     }
 
-    return (mmv_pairs(mmv));
+    return (mmv_execute(mmv));
 }
 
 int

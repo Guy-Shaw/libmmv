@@ -23,10 +23,13 @@
 #include <stdio.h>
 #include <stdlib.h>     // Import getenv()
 #include <dbgprint.h>
+#include <cscript.h>
 #include <mmv.h>
 
-extern void set_debug_fh(const char *dbg_fname);
 extern void fdump_mmv_op(FILE *f, mmv_t *mmv);
+
+const char *program_path;
+const char *program_name;
 
 FILE *errprint_fh;
 FILE *dbgprint_fh;
@@ -46,7 +49,7 @@ FILE *dbgprint_fh;
  * All that is needed to get libmmv to do the same is to:
  *   1) create a context, mmv_t, 
  *   2) call patgen() to get patterns in the manner of ENCODE_PAT,
- *   3) call mmv_pairs(mmv) to analyze the pairs and do the actual moves.
+ *   3) call mmv_execute(mmv) to analyze the pairs and do the actual moves.
  *
  * Other programs can use libmmv in other ways, using other encodings,
  * using other means to creat raw from->to pairs.
@@ -59,10 +62,12 @@ main(int argc, char *const *argv)
     mmv_t *mmv;
     int err;
 
+    set_eprint_fh();
     set_debug_fh(getenv("MMV_DEBUG"));
-    errprint_fh = stderr;
-
+    program_path = *argv;
+    program_name = sname(program_path);
     mmv = mmv_new();
+    mmv_init_patgen(mmv);
     err = patgen(mmv, argc, argv);
     if (err) {
         return (err);
@@ -72,5 +77,5 @@ main(int argc, char *const *argv)
         fputs("op=", dbgprint_fh);
         fdump_mmv_op(dbgprint_fh, mmv);
     }
-    return (mmv_pairs(mmv));
+    return (mmv_execute(mmv));
 }

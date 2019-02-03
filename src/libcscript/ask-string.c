@@ -24,59 +24,79 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if defined(__GNUC__) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE 1
+#endif
 
+#include <stddef.h>
+    // Import constant NULL
 #include <stdio.h>
-#include <string.h>     // Import strnlen()
+    // Import type FILE
+    // Import fflush()
+    // Import fgets()
+    // Import fputs()
+    // Import var stderr
+    // Import var stdin
+#include <string.h>
+    // Import strnlen()
+#include <unistd.h>
+    // Import type size_t
 
+#include <eprint.h>
+
+extern FILE *fopen_ttyw_fh(FILE *df);
+extern FILE *fopen_ttyr_fh(FILE *df);
+
+extern FILE *ttyw_fh;
+extern FILE *ttyr_fh;
 
 /**
- * @brief Write a prompt, then ask for a filename and open that file.
+ * @brief Write a prompt, then ask for a string.
  *
  * @param  prompt     IN  The prompt string to write before reading the answer
  * @param  ttyw       IN  stdio stream, where to write prompt
  * @param  ttyr       IN  stdio stream, where to read response
- * @param  fname_buf  OUT Receives the response read from the terminal
- * @param  bufsz      IN  Maximum capacity of |fname_buf|
- * @return a stdio stream (FILE *)  or  NULL, if something went wrong
+ * @param  buf        OUT Receives the response read from the terminal
+ * @param  bufsz      IN  Maximum capacity of |buf|
+ * @return buf or NULL, if something went wrong
  *
  */
 
-FILE *
-ask_filename_tty(FILE *ttyw, FILE *ttyr, const char *prompt, char *fname_buf, size_t bufsz)
+char *
+ask_string_tty(FILE *ttyw, FILE *ttyr, const char *prompt, char *buf, size_t bufsz)
 {
-    FILE *f;
     char *rbuf;
     size_t len;
 
     fputs(prompt, ttyw);
-    rbuf = fgets(fname_buf, bufsz, ttyr);
+    fflush(ttyw);
+    rbuf = fgets(buf, bufsz, ttyr);
     if (rbuf == NULL) {
         return (NULL);
     }
-    len = strnlen(fname_buf, bufsz);
-    if (fname_buf[len - 1] == '\n') {
-        fname_buf[len - 1] = '\0';
+    len = strnlen(buf, bufsz);
+    if (buf[len - 1] == '\n') {
+        buf[len - 1] = '\0';
     }
-    f = fopen(fname_buf, "w");
-    return (f);
+    return (buf);
 }
 
-/*
- * XXX TO DO
- * XXX -----
- * XXX Probe to determine if {ttyw==stderr, ttyr=stdin} are associated
- * XXX with a terminal.  Possibly open other streams for reading and
- * XXX writing to/from /dev/tty.
- * XXX
- * XXX One possible conflict is that we are reading {from->to} filename pairs
- * XXX from stdin, so we cannot count on stdin being connected to a terminal.
- * XXX In any case, we should not assume {stderr, stdin}.
- *
- */
 
-FILE *
-ask_filename(const char *prompt, char *fname_buf, size_t bufsz)
+char *
+ask_string(const char *prompt, char *buf, size_t bufsz)
 {
-    return (ask_filename_tty(stderr, stdin, prompt, fname_buf, bufsz));
+
+    if (ttyw_fh == NULL) {
+        fopen_ttyw_fh(stderr);
+    }
+
+    if (ttyr_fh == NULL) {
+        fopen_ttyr_fh(stdin);
+    }
+
+    if (ttyw_fh == NULL || ttyr_fh == NULL) {
+        return (NULL);
+    }
+
+    return (ask_string_tty(ttyw_fh, ttyr_fh, prompt, buf, bufsz));
 }

@@ -33,8 +33,6 @@
 #include <string.h>     // Import strlen()
 #include <cscript.h>    // Import fshow_str()
 
-typedef unsigned int uint_t;
-
 /*
  * @brief Show an argv-like array of strings on the given stdio stream.
  *
@@ -50,13 +48,13 @@ typedef unsigned int uint_t;
  *
  */
 void
-fshow_str_array(FILE *f, uint_t ac, char *const *av)
+fshow_str_array(FILE *f, size_t ac, char *const *av)
 {
     char nfmt[20];      // Big enough for __INT64_MAX__ 9223372036854775807LL
     uint_t maxw;
     uint_t i;
 
-    sprintf(nfmt, "%u", ac);
+    sprintf(nfmt, "%zu", ac);
     maxw = strlen(nfmt);
     sprintf(nfmt, "%%%uu", maxw);
     for (i = 0; i < ac; ++i) {

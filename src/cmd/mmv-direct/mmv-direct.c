@@ -23,9 +23,11 @@
 #include <stdio.h>
 #include <stdlib.h>     // Import getenv()
 #include <dbgprint.h>
+#include <cscript.h>
 #include <mmv.h>
 
-extern void set_debug_fh(const char *dbg_fname);
+const char *program_path;
+const char *program_name;
 
 FILE *errprint_fh;
 FILE *dbgprint_fh;
@@ -41,7 +43,7 @@ FILE *dbgprint_fh;
  * But, it is not necessary to call patgen().
  * A set of raw from-to pairs can be added to an mmv context
  * by calling mmv_add_pair() as many times as is needed,
- * before calling mmv_pairs().
+ * before calling mmv_execute().
  *
  */
 
@@ -51,19 +53,28 @@ main(int argc, char *const *argv)
     mmv_t *mmv;
     int err;
 
+    set_eprint_fh();
     set_debug_fh(getenv("MMV_DEBUG"));
-    errprint_fh = stderr;
+    program_path = *argv;
+    program_name = sname(program_path);
     mmv = mmv_new();
+    mmv_set_default_options(mmv);
+    mmv_setopt(mmv, 'x');
 
     if (argc == 3) {
-        err = mmv_add_pair(mmv, argv[1], argv[2]);
+        err = mmv_add_1_fname_pair(mmv, argv[1], argv[2]);
     }
     else {
-        err = mmv_add_pair(mmv, "tmp-01", "TMP-01");
+        err = mmv_add_1_fname_pair(mmv, "tmp-01", "TMP-01");
     }
     if (err) {
         return (err);
     }
 
-    return (mmv_pairs(mmv));
+    err = mmv_compile(mmv);
+    if (err) {
+        return (err);
+    }
+
+    return (mmv_execute(mmv));
 }

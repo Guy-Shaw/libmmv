@@ -1,7 +1,7 @@
 # Filename: src/cmd/mmv-classic/test/Makefile
 # Project: libmmv
 #
-# Copyright (C) 2016 Guy Shaw
+# Copyright (C) 2016-2019 Guy Shaw
 # Written by Guy Shaw <gshaw@acm.org>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -22,6 +22,7 @@ test:
 	./test-02-swap
 	./test-03-cycles
 	./test-04-backrefs
+	./test-05-backref-zero
 
 clean:
 	rm -rf tmp tmp-*

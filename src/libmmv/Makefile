@@ -3,7 +3,6 @@ LIBRARY := libmmv
 SOURCES := $(wildcard *.c)
 OBJECTS := $(patsubst %.c, %.o, $(SOURCES))
 
-CC := gcc
 CONFIG := -DDEBUG
 CPPFLAGS := -I../inc
 CFLAGS += -std=c99 -g -Wall -Wextra $(CONFIG)

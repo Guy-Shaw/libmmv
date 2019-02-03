@@ -1,7 +1,7 @@
 /*
- * Filename: src/libmmv/mmv-read-qp.c
+ * Filename: src/libmmv/mmv-read-vis.c
  * Library: libmmv
- * Brief: Read quote-printable encoded from->to filenames from a file.
+ * Brief: Read vis-encoded from->to filenames from a file.
  *
  * Copyright (C) 2016 Guy Shaw
  * Written by Guy Shaw <gshaw@acm.org>
@@ -26,6 +26,7 @@
 #include <stdio.h>      // for EOF, fprintf, FILE, fgetc, etc
 #include <sys/types.h>  // for ssize_t
 #include <string.h>     // Import strlen()
+#include <bsd/vis.h>
 
 #include <dbgprint.h>
 
@@ -33,11 +34,13 @@
 #define IMPORT_PATTERN
 #include <mmv-impl.h>  // for mmv_t, etc
 
+
+
 extern FILE *errprint_fh;
 extern FILE *dbgprint_fh;
 
 /**
- * @brief Read one quote-printable encoded line into a buffer.
+ * @brief Read one vis-encoded line into a buffer.
  *
  * @param f     IN   File (stdio stream) to read from
  * @param buf   OUT  buffer to hold file name
@@ -48,11 +51,10 @@ extern FILE *dbgprint_fh;
  */
 
 static int
-get_filename_qp(FILE *f, char *buf, size_t sz, size_t *rlen)
+get_filename_vis(FILE *f, char *buf, size_t sz, size_t *rlen)
 {
-    extern ssize_t qp_decode_str(char *buf, size_t sz, char *str);
     size_t len;
-    ssize_t qprv;
+    ssize_t uvlen;
     int rv;
     int c;
 
@@ -83,12 +85,12 @@ get_filename_qp(FILE *f, char *buf, size_t sz, size_t *rlen)
     }
 
     /*
-     * It is safe to qp_decode_str() in place, because the decoded string
+     * It is safe to strunvis() in place, because the decoded string
      * is the same length or shorter at every stage during decoding.
      */
-    qprv = qp_decode_str(buf, sz, buf);
+    uvlen = strunvis(buf, buf);
 
-    if (qprv < 0) {
+    if (uvlen < 0) {
         rv = -1;
     }
     *rlen = strlen(buf);
@@ -96,7 +98,7 @@ get_filename_qp(FILE *f, char *buf, size_t sz, size_t *rlen)
 }
 
 /**
- * @brief Read in { from->to } pairs, one qp-encoded line at a time.
+ * @brief Read in { from->to } pairs, one vis-encoded line at a time.
  *
  * @param mmv
  * @param f     IN   File (stdio stream) to read from
@@ -105,15 +107,15 @@ get_filename_qp(FILE *f, char *buf, size_t sz, size_t *rlen)
  */
 
 int
-mmv_get_pairs_qp(mmv_t *mmv, FILE *f)
+mmv_get_pairs_vis(mmv_t *mmv, FILE *f)
 {
     int rv;
     size_t rlen;
 
-    mmv->encoding = ENCODE_QP;
+    mmv->encoding = ENCODE_VIS;
     while (true) {
         mmv->paterr = 0;
-        rv = get_filename_qp(f, mmv->from, MAXPATLEN, &rlen);
+        rv = get_filename_vis(f, mmv->from, MAXPATLEN, &rlen);
         if (rv == EOF) {
             rv = 0;
             break;
@@ -122,7 +124,7 @@ mmv_get_pairs_qp(mmv_t *mmv, FILE *f)
             break;
         }
         mmv->fromlen = rlen;
-        rv = get_filename_qp(f, mmv->to, MAXPATLEN, &rlen);
+        rv = get_filename_vis(f, mmv->to, MAXPATLEN, &rlen);
         if (rv == EOF) {
             rv = 0;
             break;

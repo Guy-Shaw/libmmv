@@ -26,39 +26,48 @@
 #include <sys/types.h>
 #include <strbuf.h>
 
-#define SIZE_UNLIMITED ((size_t)(-1))
-
-/*
- * DIRINFO depends on FILEINFO
- */
-#ifdef IMPORT_DIRINFO
-#define IMPORT_FILEINFO
+#ifndef MMV_H
+#include <mmv.h>
 #endif
 
-/*
- * HANDLE depends on DIRINFO
- */
-#ifdef IMPORT_HANDLE
-#define IMPORT_DIRINFO
-#endif
-
+// ==================== opaque types ====================
 
 /*
- * REP depends directly on all of {HANDLE, DIRINFO, FILEINFO }
+ * Any functions in the implementation of libmmv can see the data types
+ * needed to use other functions.  Those functions can take as arguments
+ * pointers to various structures, so the names of the data types involved
+ * in their function signatures are made public, at least to the rest of
+ * the implementation.
+ *
+ * In order to see inside a structure, a module must define what further
+ * access it needs, via preprocessor definitions, before including mmv-impl.h.
+ *
+ * For example:
+ *
+ *   #defined IMPORT_FILEINFO
+ *   #include <mmv-impl.h>
+ *
  */
-#ifdef IMPORT_REP
-#define IMPORT_HANDLE
-#define IMPORT_DIRINFO
-#define IMPORT_FILEINFO
-#endif
 
 typedef ino_t DIRID;
 typedef dev_t DEVID;
 
-// ==================== FILEINFO ====================
-//
+struct fileinfo;
+typedef struct fileinfo FILEINFO;
 
-#ifdef IMPORT_FILEINFO
+struct dirinfo;
+typedef struct dirinfo DIRINFO;
+
+struct handle;
+typedef struct handle HANDLE;
+
+struct rep;
+typedef struct rep REP;
+
+struct repdict;
+typedef struct repdict REPDICT;
+
+#define SIZE_UNLIMITED ((size_t)(-1))
 
 enum fi_stflags {
     FI_STTAKEN    = 0x01,
@@ -71,80 +80,16 @@ enum fi_stflags {
     FI_ISLNK      = 0x80,
 };
 
-struct fileinfo {
-    char *       fi_name;
-    struct rep * fi_rep;
-    short        fi_mode;
-    unsigned int fi_stflags;
-};
-
-typedef struct fileinfo FILEINFO;
-
-#endif /* IMPORT_FILEINFO */
-
-
-#ifdef IMPORT_DIRINFO
-
 enum di_flags {
     DI_KNOWWRITE = 0x01,
     DI_CANWRITE  = 0x02,
     DI_CLEANED   = 0x04,
 };
 
-typedef struct {
-    DEVID di_vid;
-    DIRID di_did;
-    unsigned int di_nfils;
-    FILEINFO **  di_fils;
-    unsigned int di_flags;
-} DIRINFO;
-
-#endif /* IMPORT_DIRINFO */
-
-#ifdef IMPORT_HANDLE
-
 enum h_flags {
     H_NODIR      = 1,
     H_NOREADDIR  = 2,
 };
-
-typedef struct {
-    char *    h_name;
-    DIRINFO * h_di;
-    char      h_err;
-} HANDLE;
-
-#endif /* IMPORT_HANDLE */
-
-#ifdef IMPORT_REP
-
-typedef struct rep {
-    HANDLE *     r_hfrom;
-    FILEINFO *   r_ffrom;
-    HANDLE *     r_hto;
-    char *       r_nto;         // non-path part of new name
-    FILEINFO *   r_fdel;
-    struct rep * r_first;
-    struct rep * r_thendo;
-    struct rep * r_next;
-    char         r_flags;
-} REP;
-
-typedef struct {
-    REP *         rd_p;
-    DIRINFO *     rd_dto;
-    char *        rd_nto;
-    unsigned int  rd_i;		// Unique index, position before sorting
-} REPDICT;
-
-
-#endif /* IMPORT_REP */
-
-typedef void sigreturn_t;
-
-extern sigreturn_t breakout(int s);
-extern sigreturn_t breakrep(int s);
-extern sigreturn_t breakstat(int s);
 
 
 // ==================== POLICIES ====================
@@ -232,6 +177,16 @@ enum ops {
 
 #include <mmv-state.h>
 
+struct backref;
+typedef struct backref backref_t;
+
+struct stage;
+typedef struct stage stage_t;
+
+struct pattern;
+typedef struct pattern pattern_t;
+
+
 // ==================== system context ====================
 //
 
@@ -250,27 +205,163 @@ typedef struct system sys_t;
 
 #endif /* IMPORT_SYS */
 
-#ifdef IMPORT_ALLOC
+#include <mmv-impl-functions.h>
 
-void *myalloc(size_t sz);
-void *challoc(size_t sz, unsigned int which);
-void chgive(void *p, size_t sz);
+#ifdef IMPORT_BACKREFS
 
-#endif /* IMPORT_ALLOC */
+// mmv_patgen parses 'from' and 'to' patterns and records
+// the span ( start, length ) of all wildcards in the 'from' pattern.
+// Backreferences in the 'to' pattern (\n) are in index into this
+// array of wildcard descriptors.
+//
+struct backref {
+    char  *br_start;
+    size_t br_len;
+};
 
-#ifdef IMPORT_DEBUG
+// Account for the backreferences in each stage.
+// Each stage is accounted for by an array slice,
+// which is a subset of the whole array of backref_t descriptors.
+// The concatenation of all backrefs for all stages
+// is a partition; that is, there are no gaps and no overlap.
+// There can be a single stage; and so the slice for that stage
+// would cover all backrefs for the whole path.
 
-void fdump_replacement_structure(FILE *f, REP *rp);
-void fdump_all_replacement_structures(FILE *f, REP *head);
+struct stage {
+    char    *stg_first;   // Pointer to first backref in this stage
+    size_t   stg_count;   // Count of number of backreferences in this slice
+    char *l;
+    char *r;
+};
 
-#endif /* IMPORT_DEBUG */
 
-extern void fexplain_sbuf_pattern_too_long(FILE *f, sbuf_t *pattern);
-extern void fexplain_char_pattern_too_long(FILE *f, const char *pattern, size_t maxlen);
+// XXX document struct pattern
+//
 
-extern void fprint_filename(FILE *, const char *fname);
-extern void fexplain_err(FILE *f, int err);
-extern void explain_err(int err);
-extern void eexplain_err(int err);
+#define PATTERN_MAGIC 0x29cfafcd1de27164
+
+struct pattern {
+    size_t     pat_magic;
+    backref_t *bkref_vec;
+    size_t     bkref_siz;
+    size_t     bkref_cnt;
+
+    stage_t   *stage_vec;
+    size_t     stage_siz;
+    size_t     stage_cnt;
+};
+
+// Identifier, 'mmv', is an explicit argument
+// So, we must use preprocessor macros, for now.
+//
+
+static int
+mmv_backref_idx_diag(mmv_t *mmv, int br_index)
+{
+    pattern_t *pat = mmv->aux;
+    size_t idx;
+
+    if (pat->pat_magic != PATTERN_MAGIC) {
+        eprintf("%s: Bad magic in pattern_t.\n", __FUNCTION__);
+        return (2);  // XXX Use E* codes
+    }
+
+    if (br_index < 0) {
+        eprintf("%s: br_index=%d\n", __FUNCTION__, br_index);
+        eprintf("    br_index must be in (0..%zu).\n", pat->bkref_cnt);
+        return (2);  // XXX Use E* codes
+    }
+
+    idx = br_index;
+
+    if (idx > pat->bkref_cnt) {
+        eprintf("%s: Backref index must be in (0..%zu); br_index=%zu\n",
+                __FUNCTION__, pat->bkref_cnt, idx);
+        return (2);
+    }
+
+    return (0);
+}
+
+static backref_t *
+mmv_backref_idx(mmv_t *mmv, int br_index)
+{
+    pattern_t *pat = mmv->aux;
+    backref_t *bkrefp;
+    size_t idx;
+    int rc;
+
+    rc = mmv_backref_idx_diag(mmv, br_index);
+    if (rc) {
+        mmv_abort();
+    }
+
+    bkrefp = pat->bkref_vec;
+    idx = br_index;
+    return (bkrefp + idx);
+}
+
+static int
+mmv_brstage_idx_diag(mmv_t *mmv, int stg_index)
+{
+    pattern_t *pat = mmv->aux;
+    size_t idx;
+
+    if (pat->pat_magic != PATTERN_MAGIC) {
+        eprintf("%s: Bad magic in pattern_t.\n", __FUNCTION__);
+        return (2);  // XXX Use E* codes
+    }
+
+    if (stg_index < 0) {
+        eprintf("%s: stg_index=%d\n", __FUNCTION__, stg_index);
+        eprintf("    stg_index must be in (0..%zu).\n", pat->stage_cnt);
+        return (2);  // XXX Use E* codes
+    }
+
+    idx = stg_index;
+
+    if (idx > pat->stage_cnt) {
+        eprintf("%s: Stage index must be in (0..%zu); stg_index=%zu\n",
+                __FUNCTION__, pat->stage_cnt, idx);
+        return (2);
+    }
+
+    return (0);
+}
+
+static inline stage_t *
+mmv_brstage_idx(mmv_t *mmv, int stg_index)
+{
+    pattern_t *pat = mmv->aux;
+    stage_t *stagep;
+    size_t idx;
+    int rc;
+
+    rc = mmv_brstage_idx_diag(mmv, stg_index);
+    if (rc) {
+        mmv_abort();
+    }
+    stagep = pat->stage_vec;
+    idx = stg_index;
+    return (stagep + idx);
+}
+
+// Identifier, 'mmv', is an implicit "by name" argument
+// So, we must use preprocessor macros, for now.
+//
+#define mmv_backref(brn) mmv_backref_idx(mmv, (brn))
+#define mmv_brstage(stg) mmv_brstage_idx(mmv, (stg))
+
+// Access into array of backreferences
+//
+#define start(brn) (mmv_backref(brn)->br_start)
+#define wild_len(brn) (mmv_backref(brn)->br_len)
+
+// Access into array of backreferences for each stage.
+//
+#define firstwild(stg) (mmv_brstage(stg)->stg_first)
+#define nwilds(stg) (mmv_brstage(stg)->stg_count)
+
+#endif /* IMPORT_BACKREFS */
 
 #endif /* MMV_IMPL_H */
