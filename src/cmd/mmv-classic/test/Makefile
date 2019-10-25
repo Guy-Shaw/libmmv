@@ -23,6 +23,7 @@ test:
 	./test-03-cycles
 	./test-04-backrefs
 	./test-05-backref-zero
+	./test-06-no-wildcards
 
 clean:
 	rm -rf tmp tmp-*

@@ -123,7 +123,7 @@ init_backrefs(mmv_t *mmv)
     pat->bkref_siz = sz;
     pat->bkref_cnt = 0;
 
-    sz = stage_alloc_init;
+    sz = stage_alloc_init * sizeof (stage_t);
     pat->stage_vec = (stage_t *) mmv_alloc(sz);
     pat->stage_siz = sz;
     pat->stage_cnt = 0;
@@ -465,8 +465,13 @@ dostage_patterns(mmv_t *mmv, char *lastend, char *pathend, backref_t *bkref, int
 
     ret = 1;
     laststage = (stage + 1 == pat->stage_cnt);
-    lastbkref = mmv_backref(pat->stage_cnt - 1);
-    wantdirs = !laststage || (mmv->op & (DIRMOVE | SYMLINK)) || lastbkref->br_len == 0;
+    if (pat->stage_cnt >= 1) {
+        lastbkref = mmv_backref(pat->stage_cnt - 1);
+    }
+    else {
+        lastbkref = NULL;
+    }
+    wantdirs = !laststage || (mmv->op & (DIRMOVE | SYMLINK)) || lastbkref == NULL;
 
     if (!anylev) {
         prelen = pat->stage_vec[stage].l - lastend;

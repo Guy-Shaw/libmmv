@@ -1,0 +1,232 @@
+#! /usr/bin/perl -w
+    eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+        if 0; #$running_under_some_shell
+
+# Filename: src/cmd/mmv-classic/test/test-06-no-wildcards
+# Project: libmmv
+# Brief: Ensure that mmv works even when the 'from' filename has no wildcards
+#
+# Copyright (C) 2019 Guy Shaw
+# Written by Guy Shaw <gshaw@acm.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=pod
+
+=begin description
+
+@program{mmv} could be invoked with a plain filename,
+with no wildcard characters.
+
+That case should be very simple, but it is possible that the pattern
+parsing logic mis-behaves when the arays that keep track of 'from'
+wildcards and 'to' back-references are empty.
+Make sure it works.
+
+=end description
+
+=cut
+
+BEGIN { push(@INC, '../../../libtest'); }
+
+require 5.0;
+use strict;
+use warnings;
+use Carp;
+use diagnostics;
+use Config;     # Import signal names
+use Getopt::Long;
+use File::Spec::Functions qw(splitpath catfile);
+use Cwd qw(getcwd);
+
+my @signal_names;
+
+# Setup to translate signal numbers to names.
+# Purpose: more human-readable error messages.
+#
+sub init_signals {
+    dprint('Config{sig_name} = ', $Config{'sig_name'}, "\n");
+    @signal_names = split(/\s+/, $Config{'sig_name'});
+    dprint('signal_names = [', join(',', @signal_names), ']', "\n");
+}
+
+use mmvtest;
+
+my $debug   = 0;
+my $verbose = 0;
+
+my $program;
+my $exe;
+my $test_path;
+my $test_name;
+my $subtest;
+
+my @options = (
+    'debug'   => \$debug,
+    'verbose' => \$verbose,
+);
+
+#:subroutines:#
+
+sub snarf_file {
+    my ($fname) = @_;
+    my $fh;
+    my $whole_file;
+    my $buf;
+    my $nread;
+
+    if (!open($fh, '<', $fname)) {
+        return '*** ERROR ***';
+    }
+
+    $whole_file = '';
+    while (($nread = sysread($fh, $buf, 1000000000)) != 0) {
+        $whole_file .= $buf;
+    }
+
+    close $fh;
+
+    return $whole_file;
+}
+
+sub names_and_contents {
+    my $all_contents = '';
+    for my $fname (@_) {
+        my $contents = snarf_file($fname);
+        $all_contents .= $contents;
+    }
+    return $all_contents;
+}
+
+sub explain_command_failure {
+    my ($rc, @cmdv) = @_;
+    my $simple_cmd;
+    my $sig;
+    my $signame;
+    my $exit;
+    my $core;
+
+    $simple_cmd = $cmdv[0];
+    $simple_cmd =~ s{.*/}{}msx;
+    $exit    = ($rc >> 8) & 0xff;
+    $sig     = $rc & 0x7f;
+    $core    = ($rc >> 7) & 0x01;
+    $signame = $signal_names[$sig];
+    eprint('+ ', join(' ', @cmdv), "\n");
+    eprintf('%s FAILED.  status=%u (signal=%s(%u), exit=%u)',
+        $simple_cmd, $rc, $signame, $sig, $exit);
+    eprint("\n");
+    if ($core) {
+        eprint("core dumped.\n");
+        if (-e 'core') {
+            system('ls', '-dlh', 'core');
+        }
+    }
+}
+
+#:options:#
+
+set_print_fh();
+
+GetOptions(@options) or exit 2;
+
+#:main:#
+#
+init_signals();
+
+fresh_tmpdir();
+
+$test_path = $0;
+$test_name = sname($test_path);
+
+$subtest = '';
+$program = 'mmv';
+$exe = catfile('../..', $program);
+
+if (!chdir('tmp')) {
+    eprint "chdir('tmp') failed; $!.\n";
+    exit 2;
+}
+
+write_new_file('file01', "File one.\n");
+
+my $before;
+my $after;
+
+$before = names_and_contents('file01');
+
+my $err;
+my $rc;
+my $exit;
+
+$err = 0;
+my $child = fork();
+
+if (!defined($child)) {
+    eprint "fork() failed; $!\n";
+    exit 2;
+}
+
+if ($child) {
+    wait;
+}
+else {
+    open(*STDIN,  '<', 'pairs');
+    open(*STDOUT, '>', 'mmv.out');
+    open(*STDERR, '>', 'mmv.err');
+    exec($exe, 'file01', 'file02');
+}
+
+$rc = $?;
+$exit = ($rc >> 8) & 0xff;
+if ($rc) {
+    explain_command_failure($rc, $exe);
+}
+
+$after = names_and_contents('file02');
+
+if (-e 'file01') {
+    print
+        "Original file, 'file01' should have been moved.\n",
+        "but it still exists.\n";
+    system('ls', '-dlh', 'file01');
+    $err = 1;
+}
+
+if (! -e 'file02') {
+    print
+        "New file, 'file02' should have been created,\n",
+        "but it does not exist.\n";
+    $err = 1;
+}
+
+if ($err == 0  and  $after ne $before) {
+    print "Files should not have changed, but they did.\n";
+    print "Before:\n";
+    print '    ', $_, "\n"  for (split(/\n/, $before));
+    print "After\n";
+    print '    ', $_, "\n"  for (split(/\n/, $after));
+    $err = 1;
+}
+
+if ($rc != 0) {
+    eprint "mmv returned exit status ${exit}.\n";
+    eprint "Expected status: 0\n";
+    $err = 1;
+}
+
+show_mmv_stdout_and_stderr();
+show_test_results($test_name, 'no-wildcards', $err);
+
+exit ($err ? 1 : 0);
