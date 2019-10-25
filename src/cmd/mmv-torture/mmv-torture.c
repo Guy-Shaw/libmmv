@@ -59,6 +59,18 @@ FILE *dbgprint_fh;
  *
  */
 
+static void
+make_deep_pathname(char *path_buf, size_t sz)
+{
+    size_t len;
+
+    memset(path_buf, 'A', sz);
+    for (len = 0; len < sz - 2; len += 64) {
+        path_buf[len] = '/';
+    }
+    path_buf[sz - 1] = '\0';
+}
+
 static int
 test_path_too_long(void)
 {
@@ -66,17 +78,9 @@ test_path_too_long(void)
     int err;
     char *src_pattern;
     size_t big = PATH_MAX + 100;
-    size_t len;
-    char *p;
 
     src_pattern = guard_malloc(big);
-
-    for (p = src_pattern, len = 0; len < big; p += 64, len += 64) {
-        memset(p, 'A', 64);
-        p[63] = '/';
-    }
-    p[63] = '\0';
-
+    make_deep_pathname(src_pattern, big);
     mmv = mmv_new();
     err = mmv_add_1_fname_pair(mmv, src_pattern, "TMP-01");
     if (err) {
