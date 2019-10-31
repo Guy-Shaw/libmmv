@@ -46,6 +46,7 @@ clean:
 	rm -f $(PROGRAM) core a.out mmv *.o *.a
 	rm -f test_?? T.??
 	rm -f *,FAILED
+	rm -rf tmp
 
 show-targets:
 	@show-makefile-targets
