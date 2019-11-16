@@ -179,10 +179,9 @@ if (!defined($child)) {
 }
 
 if ($child) {
-    wait;
+    waitpid($child, 0);
 }
 else {
-    open(*STDIN,  '<', 'pairs');
     open(*STDOUT, '>', 'mmv.out');
     open(*STDERR, '>', 'mmv.err');
     exec($exe, 'file01', 'file02');

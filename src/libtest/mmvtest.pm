@@ -134,7 +134,7 @@ sub fresh_tmpdir {
     if (-e 'tmp') {
         my $tmp_backup;
 
-        $tmp_backup = 'tmp-' . yyyymmddhhmmss(time);
+        $tmp_backup = 'tmp-' . yyyymmddhhmmss(time) . '-' . $$;
         rename('tmp', $tmp_backup);
     }
 
